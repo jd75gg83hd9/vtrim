@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>WebSocket demo</title>
+    <style>
+        .hover {
+        border-style: solid;
+        border-color: blue;
+        }
+    </style>
+</head>
+<body>
+<div id="connection_status"><span style="background-color: #FF3333;">not connected to backend</span></div>
+<div id="video_file"></div>
+<form action="javascript:void(0);">
+    Timestamp: <input type="text" id="timestamp_input"><br>
+    <input type="submit" value="Create clip" onclick="send_timestamp();">
+    <input type="submit" value="Create clip in new tab" onclick="send_timestamp_in_new_tab();">
+    <input type="checkbox" id="x264lossless">x264 lossless re-encode instead of remux
+</form>
+<div id="server_log"></div>
+<div id="vapoursynth_script" style="background-color: #DFDDDD"></div>
+<input id="open_in_vsedit" type="submit" value="Open in vsedit" onclick="open_in_vsedit();">
+<input id="open_in_vsedit2" type="submit" value="Open in vsedit" onclick="open_in_vsedit2();">
+<div id="video_container"></div>
+<script>
+
+var state;
+var video_path;
+
+// stores the actual timestamp used in this window. when using the function "create clip in a new tab",
+//
+var real_timestamp = '';
+
+
+
+
+// websocket stuff
+            var ws = new WebSocket("ws://127.0.0.1:@@port@@/");
+
+            ws.onmessage = function (event) {
+                console.log('received from server: ' + event.data);
+                var data = JSON.parse(event.data);
+
+                if (data['command'] == 'set_video_path') {
+                    console.log('setting video path');
+                    state = 'getting_timestamp';
+                    video_path = data['video_path'];
+                    document.getElementById('video_file').innerHTML = data['video_path'];
+                } else if (data['command'] == 'display_video') {
+                    console.log('setting vid source: ' + data['source_tag']);
+                    document.getElementById('video_container').innerHTML = data['source_tag'];
+                } else if (data['command'] == 'alert') {
+                    alert(data['message']);
+                } else if (data['command'] == 'set_server_log') {
+                    document.getElementById('server_log').innerHTML = data['contents'];
+                } else if (data['command'] == 'set_vapoursynth_script') {
+                    document.getElementById('vapoursynth_script').innerHTML = data['script_contents'];
+                } else if (data['command'] == 'open_new_tab') {
+                    window.open(window.location.href.split('?')[0] + '?' + data['tab_id'], '_blank');
+                } else if (data['command'] == 'set_timestamp') {
+                    real_timestamp = data['timestamp'];
+                    document.getElementById('timestamp_input').value = data['timestamp'];
+                }
+            };
+            ws.onopen = function(e) {
+                document.getElementById('connection_status').innerHTML = '<span style="background-color: #00CC66;">connected to backend</span>';
+
+                // new tab
+                var split_url = String(window.location).split('?');
+                if (split_url.length == 2) {
+                    ws.send(JSON.stringify({'event': 'new_tab_opened', 'tab_id': split_url[1]}));
+                    // remove query from url so that page refresh works
+                    history.replaceState({}, document.title, split_url[0]);
+                }
+            };
+            ws.onclose = function(e) {
+                document.getElementById('connection_status').innerHTML = '<span style="background-color: #FF3333;">not connected to backend</span>';
+            };
+
+// send timestamp to server
+
+            function send_timestamp() {
+               if (video_path == null) {
+                   alert('no file selected');
+                    return false;
+               }
+               else {
+                    var data1 = {};
+                    real_timestamp = document.getElementById('timestamp_input').value;
+                    data1['timestamp'] = document.getElementById('timestamp_input').value;
+                    data1['event'] = 'timestamp_entered';
+                    data1['video_path'] = video_path;
+                    if (document.getElementById('x264lossless').checked) {
+                        data1['x264lossless'] = 1;
+                    } else {
+                        data1['x264lossless'] = 0;
+                    }
+                    ws.send(JSON.stringify(data1));
+                    console.log('state: ' + state);
+                    document.getElementById('video_container').innerHTML = '';
+
+                return false;
+                }
+            };
+
+// here no new tab is opened. trim time and video are simply sent to the server.
+// the server replies with a open_new_tab event, which contains a query id, which
+// is bound to trim time and video on the server. only then is the new tab opened
+// with the query id as a URL query. in the new tab, the query id is sent to the
+// server, and the server returns the trim time & video associated with that query id.
+            function send_timestamp_in_new_tab() {
+               if (video_path == null) {
+                   alert('no file selected');
+                    return false;
+               }
+               else {
+                    var data1 = {};
+                    data1['timestamp'] = document.getElementById('timestamp_input').value;
+
+                    // reset the timestamp to the real timestamp of this tab
+                    document.getElementById('timestamp_input').value = real_timestamp;
+
+                    data1['event'] = 'data_entered_for_new_tab';
+                    data1['video_path'] = video_path;
+                    if (document.getElementById('x264lossless').checked) {
+                        data1['x264lossless'] = 1;
+                    } else {
+                        data1['x264lossless'] = 0;
+                    }
+                    ws.send(JSON.stringify(data1));
+
+                return false;
+                }
+            };
+
+// drop vid into browser file selection
+
+            var doc = document.documentElement;
+            doc.ondragover = function () { this.className = 'hover'; return false; };
+            doc.ondragend = function () { this.className = ''; return false; };
+            doc.ondragleave = function () { this.className = ''; return false; };
+            doc.ondrop = function (event) {
+              event.preventDefault && event.preventDefault();
+              this.className = '';
+
+              // now do something with:
+              var files = event.dataTransfer.files;
+              console.log('file dropped: ' + files[0].name);
+              var data = {};
+              data['event'] = 'file_dragged';
+              data['filename'] = files[0].name;
+
+              document.getElementById("timestamp_input").focus();
+              ws.send(JSON.stringify(data));
+              return false;
+            };
+
+// open scrit in vsedit
+            function open_in_vsedit() {
+                var data = {};
+                data['event'] = 'open_in_vsedit';
+                data['script'] = document.getElementById('vapoursynth_script').innerHTML;
+                ws.send(JSON.stringify(data));
+                return false;
+            }
+            function open_in_vsedit2() {
+                var data = {};
+                data['event'] = 'open_in_vsedit2';
+                data['script'] = document.getElementById('vapoursynth_script').innerHTML;
+                ws.send(JSON.stringify(data));
+                return false;
+            }
+
+
+</script>
+</body>
+</html>
