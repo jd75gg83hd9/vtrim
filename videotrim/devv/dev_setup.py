@@ -160,14 +160,20 @@ unzip_without_top_directory(havsfunc_archive, python_dir, file_ending_whitelist=
 unzip_without_top_directory(mvsfunc_archive, python_dir, file_ending_whitelist=['mvsfunc.py'])
 shutil.copy(adjust_script, os.path.join(python_dir, 'adjust.py'))
 
+def sevenzip_e(archive, dst_dir, files, flags=[]):
+    subprocess.call([sevenzip, 'e', archive, '-y', '-o' + dst_dir] + files + ['-r'] + flags)
+    for file in files:
+        if not os.path.isfile(os.path.join(dst_dir, file)):
+            raise AssertionError('Could not extract %s from %s' % (file, archive))
+
 vsynth_plugins = os.path.join(python_dir, 'vapoursynth32', 'plugins')
-subprocess.call([sevenzip, 'e', lsmash_archive, '-y', '-o' + vsynth_plugins, 'vslsmashsource.dll', '-r'])
-subprocess.call([sevenzip, 'e', scd_archive, '-y', '-o' + vsynth_plugins, 'scenechange.dll', 'temporalsoften2.dll', '-r'])
-subprocess.call([sevenzip, 'e', scd_archive, '-y', '-o' + python_dir, 'temporalsoften2.py', '-r'])
-subprocess.call([sevenzip, 'e', mvtools_archive, '-y', '-o' + vsynth_plugins, 'libmvtools.dll', '-r'])
-subprocess.call([sevenzip, 'e', nnedi3_archive, '-y', '-o' + vsynth_plugins, 'libnnedi3.dll', '-r'])
-subprocess.call([sevenzip, 'e', ffms2_archive, '-y', '-o' + vsynth_plugins, 'ffms2.dll', 'ffms2.lib', 'ffmsindex.exe', '-r', '-xr!*x64*'])
-subprocess.call([sevenzip, 'e', fft3dfilter_archive, '-y', '-o' + vsynth_plugins, 'vsfft3dfilter.dll', '-r', '-xr!*x64*'])
+sevenzip_e(lsmash_archive, vsynth_plugins, ['vslsmashsource.dll'])
+sevenzip_e(scd_archive, vsynth_plugins, ['scenechange.dll', 'temporalsoften2.dll'])
+sevenzip_e(scd_archive, python_dir, ['temporalsoften2.py'])
+sevenzip_e(mvtools_archive, vsynth_plugins, ['libmvtools.dll'])
+sevenzip_e(nnedi3_archive, vsynth_plugins, ['libnnedi3.dll'])
+sevenzip_e(ffms2_archive, vsynth_plugins, ['ffms2.dll', 'ffms2.lib', 'ffmsindex.exe'], ['-xr!*x64*'])
+sevenzip_e(fft3dfilter_archive, vsynth_plugins, ['vsfft3dfilter.dll'], ['-xr!*x64*'])
 shutil.copy(nnedi3_weights, os.path.join(vsynth_plugins, os.path.split(nnedi3_weights)[1]))
 shutil.copy(finesharp_script, os.path.join(python_dir, os.path.split(finesharp_script)[1]))
 shutil.copy(get_pip, os.path.join(internal_dir, os.path.split(get_pip)[1]))
