@@ -106,7 +106,7 @@ vsedit_archive = download_archive(r'https://bitbucket.org/mystery_keeper/vapours
 ffms2_archive = download_archive(r'https://github.com/FFMS/ffms2/releases/download/2.22/ffms2-2.22-msvc.7z')
 fmtcnv_archive = download_archive(r'https://github.com/EleonoreMizo/fmtconv/releases/download/r20/fmtconv-r20.zip')
 # L-SMASH   http://forum.doom9.org/showthread.php?t=167435
-lsmash_archive = download_archive(r'https://www.dropbox.com/sh/3i81ttxf028m1eh/AAAYUEmdooA0f7eTx4K3ynKMa/L-SMASH-Works-r879-20160520-32bit.7z?dl=1')
+lsmash_archive = download_archive(r'https://www.dropbox.com/sh/3i81ttxf028m1eh/AAD5uZ7GGyJVd0zxrvx3sK4pa/Old/L-SMASH-Works-r879-20160627-32bit.7z?dl=1')
 debilinear_archive = download_archive(r'http://web.archive.org/web/20140214021604/http://rgb.chromashift.org/debilinear%20r6.zip')
 debicubic_archive = download_archive(r'http://web.archive.org/web/20140420184606/http://rgb.chromashift.org/debicubic%20r2.zip')
 finesharp_script = download_archive(r'https://gist.github.com/4re/8676fd350d4b5b223ab9/raw/8314a9a4c9ca8f2e1842ff301fe36d0eee54182a/finesharp.py')
