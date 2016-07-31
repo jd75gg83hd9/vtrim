@@ -42,18 +42,25 @@ def clean_lib_dir():
 
 def zip_e(zip, dst_dir, extract_files, exclude_folder_pattern):
     """like 7zip e mode, extract specific files, ignoring zip folder structure"""
-    copied_files = set(extract_files)
+    copied_files = set()
     with tempfile.TemporaryDirectory() as tmp_dir:
         zipfile.ZipFile(zip).extractall(tmp_dir)
         for root, dirs, files in os.walk(tmp_dir):
             for name in files:
                 if exclude_folder_pattern not in root:
                     srcfile = os.path.join(root, name)
-                    for ef in extract_files:
-                        if srcfile.endswith(ef):
-                            print('Extracting %s to %s' %(srcfile, os.path.join(dst_dir, name)))
-                            shutil.copy(srcfile, os.path.join(dst_dir, name))
-                            copied_files.add(name)
+                    dstfile = os.path.join(dst_dir, name)
+                    if name in extract_files:
+                        if os.path.isfile(dstfile):
+                            raise AssertionError('wanted to extract %s from %s, but the file already exists' % (name, zip))
+                        if name in copied_files:
+                            raise AssertionError('wanted to extract %s from %s, but it was already extracted' % (name, zip))
+                        print('extracting %s to %s' %(srcfile, dstfile))
+                        shutil.copy(srcfile, dstfile)
+                        copied_files.add(name)
+    for ef in extract_files:
+        if not ef in copied_files:
+            raise AssertionError('could not extract %s from %s' % (ef, zip))
 
 def unzip_without_top_directory(zip, dst_dir, file_ending_whitelist=None):
     """unzip but ignore the top level directory in the zip"""
@@ -121,6 +128,11 @@ nnedi3_weights = download_archive(r'https://github.com/dubhater/vapoursynth-nned
 fft3dfilter_archive = download_archive(r'http://vfrmaniac.fushizen.eu/works/vsfft3dfilter_r22-b023e21.7z')
 fftw_archive = download_archive(r'ftp://ftp.fftw.org/pub/fftw/fftw-3.3.4-dll32.zip')
 
+# mpeg2 TS handling
+d2vsource_archive = download_archive(r'https://github.com/dwbuiten/d2vsource/releases/download/v1.0/d2vsource-1.0-windows.zip')
+# DGIndex.exe http://avisynth.nl/index.php/DGDecode
+dgdecode_archive = download_archive(r'http://hank315.nl/files/DGdecode/dgmpgdec158_SSE.zip')
+
 scd_archive = os.path.join(download_dir, 'scenechange-0.2.0-2.7z')
 if not os.path.isfile(scd_archive):
     raise ValueError('auto download of mediafire links not possible - download SCD manually http://forum.doom9.org/showthread.php?t=166769 and put in lib\download')
@@ -161,6 +173,10 @@ unzip_without_top_directory(mvsfunc_archive, python_dir, file_ending_whitelist=[
 shutil.copy(adjust_script, os.path.join(python_dir, 'adjust.py'))
 
 def sevenzip_e(archive, dst_dir, files, flags=[]):
+    for file in files:
+        if os.path.isfile(os.path.join(dst_dir, file)):
+            raise AssertionError('wanted to extract %s from %s, but it already exists in the destination '
+                                 'location %s' % (file, archive, dst_dir))
     subprocess.call([sevenzip, 'e', archive, '-y', '-o' + dst_dir] + files + ['-r'] + flags)
     for file in files:
         if not os.path.isfile(os.path.join(dst_dir, file)):
@@ -177,7 +193,9 @@ sevenzip_e(fft3dfilter_archive, vsynth_plugins, ['vsfft3dfilter.dll'], ['-xr!*x6
 shutil.copy(nnedi3_weights, os.path.join(vsynth_plugins, os.path.split(nnedi3_weights)[1]))
 shutil.copy(finesharp_script, os.path.join(python_dir, os.path.split(finesharp_script)[1]))
 shutil.copy(get_pip, os.path.join(internal_dir, os.path.split(get_pip)[1]))
-zip_e(fmtcnv_archive, vsynth_plugins, ['fmtconv.dll'], 'win64')
+zip_e(fmtcnv_archive, vsynth_plugins, ['fmtconv.dll'], '64')
+zip_e(d2vsource_archive, vsynth_plugins, ['d2vsource.dll'], '64')
 zip_e(fftw_archive, vsynth_plugins, ['libfftw3f-3.dll'], 'sadsadasd')
 zip_e(debilinear_archive, internal_dir, ['debilinear.dll'], 'sadsadasd')
 zip_e(debicubic_archive, internal_dir, ['debicubic.dll'], 'sadsadasd')
+zip_e(dgdecode_archive, internal_dir, ['DGIndex.exe'], 'sadsadasd')
