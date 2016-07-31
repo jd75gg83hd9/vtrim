@@ -14,11 +14,13 @@ tmp_dir = lambda: os.path.join(internal_dir(), 'temp')
 python_dir = lambda: os.path.join(internal_dir(), 'python')
 log_dir = lambda: os.path.join(internal_dir(), 'logs')
 ffmpeg = lambda: os.path.join(internal_dir(), 'ffmpeg.exe')
+ffprobe = lambda: os.path.join(internal_dir(), 'ffprobe.exe')
 html_template = lambda: os.path.join(internal_dir(), 'template.html')
 replaced_html = lambda: os.path.join(internal_dir(), 'index.html')
 vsedit = lambda: os.path.join(python_dir(), 'vsedit-32bit.exe')
+dgindex = lambda: os.path.join(internal_dir(), 'DGIndex.exe')
 preview_filetype = lambda: 'mp4'
-preview_ffmpeg_args = lambda: '-preset ultrafast -crf 18'.split(' ')
+preview_ffmpeg_args = lambda: '-c:v libx264 -preset ultrafast -crf 18'.split(' ')
 
 
 # initialization

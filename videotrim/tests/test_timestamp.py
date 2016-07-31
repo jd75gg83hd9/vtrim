@@ -1,6 +1,6 @@
 import unittest
 
-from server_autobahn import to_timestamp
+from videotrim.server_autobahn import to_timestamp
 
 class TestTimestamp(unittest.TestCase):
     def test_upper(self):

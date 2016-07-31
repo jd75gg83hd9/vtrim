@@ -11,6 +11,7 @@ import json
 import time
 
 from videotrim import settings
+from videotrim import vid_util, util
 
 import socket
 
@@ -38,37 +39,10 @@ default_port = 5743
 
 new_tab_data = list()
 
-
-vs_script = r'''import vapoursynth as vs
-core = vs.get_core()
-# core.std.LoadPlugin(path=r".........")
-video = core.ffms2.Source(source=r"@@mkv@@")
-
-# QTGMC
-# import havsfunc as haf
-# video = haf.QTGMC(video, Preset='medium', TFF=True)
-# video = haf.QTGMC(video, Preset='placebo', TFF=True)
-# video = haf.QTGMC(video, Preset='draft', TFF=True)
-
-# debilienar
-# core.avs.LoadPlugin(path=r'@@internal dir@@\debilinear.dll')
-# video = core.avs.debilinear(video, 40,80)
-
-# @@framecount@@ frames
-video.set_output()'''
-# vs_script = r'''import vapoursynth as vs
-# core = vs.get_core()
-# video = core.lsmas.LWLibavSource(source=r"@@mkv@@")
-# # @@framecount@@ frames
-# video.set_output()'''
-
 counter = 1
 
 
-def kinda_unique_str():
-    global counter
-    counter += 1  # race condition?
-    return str(time.time()) + str(counter)
+
 
 ffplay_windows = dict()
 
@@ -180,7 +154,8 @@ class MyServerProtocol(WebSocketServerProtocol):
 
     async def create_lossless_trim(self, data):
         timestamp = to_timestamp(data['timestamp'].strip())
-        output_extension = data['video_path'][data['video_path'].rfind('.'):]
+        input_extension = data['video_path'][data['video_path'].rfind('.'):].lower()
+        output_extension = input_extension
         if int(data['x264lossless']) == 1:
             output_extension = '.mkv'
             preview_pre_params = ['-ss', str(timestamp), '-i', data['video_path'], '-t', '00:00:05', '-c:v', 'libx264',
@@ -190,20 +165,24 @@ class MyServerProtocol(WebSocketServerProtocol):
         lossless_trim = os.path.join(trim_dir.name, 'vid%s%s' % (time.time(), output_extension))
         preview_post_params = ['-an', '-y']
         await self.ffmpeg(preview_pre_params + preview_post_params + [lossless_trim] + ['-report'])
-        import vapoursynth as vs
-        core = vs.get_core()
-        video = core.lsmas.LWLibavSource(source=lossless_trim)
-        framecount = video.num_frames
-        script = vs_script.replace('@@framecount@@', str(framecount))\
-            .replace('@@mkv@@', lossless_trim).replace('@@internal dir@@', settings.internal_dir())
-        self.VtSendMessage({'command': 'set_vapoursynth_script',
-                            'script_contents': script.replace('\n', '<br>')})
+
         # since lossless_trim will be displayed in its entirety, there's no need to go through vapoursynth
         await self.quick_preview(lossless_trim)
-        # self.display_preview_of_script(script)
+
+        if input_extension in ['.ts', '.tp'] and vid_util.is_mpeg2ts(data['video_path']):
+            src_line = await vid_util.d2v_src(lossless_trim)
+        else:
+            src_line = vid_util.ffms2_src(lossless_trim)
+
+        logger.debug('src line: ' + src_line)
+        script = vid_util.vs_script(src_line)
+
+        self.VtSendMessage({'command': 'set_vapoursynth_script',
+                            'script_contents': script.replace('\n', '<br>')})
+
 
     async def start_ffmpeg(self, params):
-        report_dir = os.path.join(settings.tmp_dir(), kinda_unique_str())
+        report_dir = os.path.join(settings.tmp_dir(), util.kinda_unique_str())
         os.mkdir(report_dir)
         ffmpeg_logger.info('ffmpeg call: ' + ' '.join(params))
         return {'process': await asyncio.create_subprocess_exec(settings.ffmpeg(), *params, cwd=report_dir,
